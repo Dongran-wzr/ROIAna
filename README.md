@@ -100,6 +100,7 @@ ROIAna/
 │   ├── result.js       # 结果页逻辑
 │   └── style.css       # 样式
 ├── api.py              # 后端入口
+├── main.py             # 测试用主程序！！！（代码功能测试专用：可以直接运行，无需启动后端）
 ├── README.md           # 说明文档
 └── temp_uploads/       # 上传or保存的临时文件
 ```
