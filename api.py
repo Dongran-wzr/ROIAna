@@ -9,12 +9,15 @@ import cv2
 import numpy as np
 import base64
 import uuid
+import json
 import uvicorn
 
 from src.utils import load_image_with_exif, resize_to_1080p
 from src.detector import HandDetector
 from src.processor import PalmLineExtractor
+from src.analyzer import PalmAnalyzer
 
+# 创建 FastAPI 实例
 app = FastAPI(
     title="Recognition API",
     description="掌纹识别与分析 API",
@@ -38,13 +41,18 @@ if not os.path.exists(TEMP_DIR):
 # 启动时初始化
 detector = HandDetector()
 extractor = PalmLineExtractor()
+analyzer = PalmAnalyzer()
 
 class DetectionResult(BaseModel):
-    lines: Dict[str, List[List[int]]] 
+    lines: Dict[str, List[List[int]]] # 简化后的点坐标
     hand_info: Dict
+    # reading: Dict[str, Dict[str, str]] # 移除自动解读
     image_url: str # 处理后图片的访问链接
-    clean_image_url: str # 原始图片
+    clean_image_url: str # 原始图片(用于底图)
     data_id: str   # 用于后续矫正的唯一 ID
+
+class AnalyzeRequest(BaseModel):
+    data_id: str
 
 class CorrectionRequest(BaseModel):
     data_id: str
@@ -90,7 +98,13 @@ async def detect_palm(file: UploadFile = File(...)):
     # 掌纹提取
     lines_result = extractor.extract_lines(roi, landmarks_roi)
     
-    # 结果绘制与数据整理
+    # 保存中间数据供后续解读
+    features = analyzer._extract_features(lines_result, roi.shape[:2])
+    feature_file = os.path.join(TEMP_DIR, f"{file_id}_features.json")
+    with open(feature_file, 'w') as f:
+        json.dump(features, f)
+    
+    # 数据整理
     overlay = processed_img.copy()
     h, w = processed_img.shape[:2]
     line_thickness = max(2, int(w / 300))
@@ -132,9 +146,33 @@ async def detect_palm(file: UploadFile = File(...)):
         "lines": export_lines,
         "hand_info": hand_info,
         "image_url": f"/images/{result_filename}",
-        "clean_image_url": f"/images/{clean_filename}", 
+        "clean_image_url": f"/images/{clean_filename}", # 额外返回干净图
         "data_id": file_id
     }
+
+@app.post("/analyze_hand")
+async def analyze_hand(request: AnalyzeRequest):
+    """
+    调用 DeepSeek 进行手相解读。
+    """
+    file_id = request.data_id
+    feature_file = os.path.join(TEMP_DIR, f"{file_id}_features.json")
+    
+    if not os.path.exists(feature_file):
+        raise HTTPException(status_code=404, detail="Analysis data not found")
+        
+    with open(feature_file, 'r') as f:
+        features = json.load(f)
+        
+    # 调用 LLM
+    try:
+        if analyzer.client:
+            result = analyzer._analyze_with_llm(features)
+        else:
+            result = analyzer._analyze_rule_based(features)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/correct")
 async def correct_palm(request: CorrectionRequest):

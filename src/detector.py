@@ -95,9 +95,10 @@ class HandDetector:
         x2 = min(width, x + w + pad_w)
         y2 = min(height, y + h + pad_h)
         
-        #正反手校验
+        # 获取左右手信息
+        original_label = handedness.classification[0].label
+        label = "Right" if original_label == "Left" else "Left"
         score = handedness.classification[0].score
-        label = handedness.classification[0].label 
         
         # 裁切 ROI
         roi = image[y1:y2, x1:x2]

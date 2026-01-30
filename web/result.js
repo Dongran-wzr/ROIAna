@@ -47,6 +47,39 @@ function init() {
     updateConfidence(elements.confHeart, resultData.lines.heart_line);
     updateConfidence(elements.confHead, resultData.lines.head_line);
     
+    // 绑定 AI 解读按钮
+    const aiBtn = document.getElementById('ai-analyze-btn');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', async () => {
+            aiBtn.disabled = true;
+            aiBtn.textContent = "🔮 大师正在冥想中...";
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/analyze_hand`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data_id: resultData.data_id })
+                });
+                
+                const readingResult = await response.json();
+                
+                if (!response.ok) throw new Error(readingResult.detail || 'Analysis failed');
+                
+                // 渲染结果
+                renderReading('life', readingResult.life_line);
+                renderReading('heart', readingResult.heart_line);
+                renderReading('head', readingResult.head_line);
+                
+                aiBtn.textContent = "✅ 解读完成";
+            } catch (err) {
+                console.error(err);
+                alert("大师解读失败: " + err.message);
+                aiBtn.disabled = false;
+                aiBtn.textContent = "🔮 DeepSeek 大师解读";
+            }
+        });
+    }
+    
     // 加载图片
     let cleanUrl = resultData.clean_image_url;
     if (!cleanUrl.startsWith('/')) cleanUrl = '/' + cleanUrl;
@@ -83,6 +116,18 @@ function updateConfidence(el, points) {
         el.textContent = "未检测";
         el.style.color = "#666";
     }
+}
+
+function renderReading(type, data) {
+    const box = document.getElementById(`reading-${type}`);
+    if (!data || data.feature === '未检测到') {
+        box.style.display = 'none';
+        return;
+    }
+    
+    box.style.display = 'block';
+    box.querySelector('.feat').textContent = data.feature;
+    box.querySelector('.read').textContent = data.reading;
 }
 
 function resizeCanvas() {

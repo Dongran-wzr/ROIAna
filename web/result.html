@@ -172,6 +172,11 @@
                     <span>生命线</span>
                     <span class="percent" id="conf-life" style="margin-left: auto">Detected</span>
                 </label>
+                <!-- 解读内容 -->
+                <div class="reading-box" id="reading-life" style="display:none; padding: 10px; background: #222; margin-top: -10px; border-radius: 0 0 8px 8px; font-size: 0.85rem; color: #aaa;">
+                    <p><strong style="color:var(--line-life)">特征:</strong> <span class="feat"></span></p>
+                    <p style="margin-top:5px"><strong style="color:var(--line-life)">解读:</strong> <span class="read"></span></p>
+                </div>
                 
                 <label class="switch-item">
                     <input type="checkbox" id="toggle-heart" checked>
@@ -179,6 +184,10 @@
                     <span>感情线</span>
                     <span class="percent" id="conf-heart" style="margin-left: auto">Detected</span>
                 </label>
+                <div class="reading-box" id="reading-heart" style="display:none; padding: 10px; background: #222; margin-top: -10px; border-radius: 0 0 8px 8px; font-size: 0.85rem; color: #aaa;">
+                    <p><strong style="color:var(--line-heart)">特征:</strong> <span class="feat"></span></p>
+                    <p style="margin-top:5px"><strong style="color:var(--line-heart)">解读:</strong> <span class="read"></span></p>
+                </div>
                 
                 <label class="switch-item">
                     <input type="checkbox" id="toggle-head" checked>
@@ -186,7 +195,15 @@
                     <span>智慧线</span>
                     <span class="percent" id="conf-head" style="margin-left: auto">Detected</span>
                 </label>
+                <div class="reading-box" id="reading-head" style="display:none; padding: 10px; background: #222; margin-top: -10px; border-radius: 0 0 8px 8px; font-size: 0.85rem; color: #aaa;">
+                    <p><strong style="color:var(--line-head)">特征:</strong> <span class="feat"></span></p>
+                    <p style="margin-top:5px"><strong style="color:var(--line-head)">解读:</strong> <span class="read"></span></p>
+                </div>
             </div>
+            
+            <button id="ai-analyze-btn" class="btn btn-save" style="margin-top: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                🔮 DeepSeek 大师解读
+            </button>
             
             <div class="actions">
                 <button class="btn btn-back" onclick="history.back()">返回</button>
