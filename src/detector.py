@@ -86,7 +86,7 @@ class HandDetector:
         v2 = (p17.x - p0.x, p17.y - p0.y)
         cross_val = v1[0] * v2[1] - v1[1] * v2[0]
         
-        final_label = "Left" if cross_val < 0 else "Right"
+        final_label = "Right" if cross_val < 0 else "Left"
         
         
         # 提取关键点坐标 (像素)

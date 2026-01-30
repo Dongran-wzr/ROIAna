@@ -46,9 +46,9 @@ function init() {
         elements.handType.style.color = "#f1c40f";
     }
     
-    updateConfidence(elements.confLife, resultData.lines.life_line);
-    updateConfidence(elements.confHeart, resultData.lines.heart_line);
-    updateConfidence(elements.confHead, resultData.lines.head_line);
+    updateConfidence(elements.confLife, resultData.confidences.life_line, resultData.lines.life_line);
+    updateConfidence(elements.confHeart, resultData.confidences.heart_line, resultData.lines.heart_line);
+    updateConfidence(elements.confHead, resultData.confidences.head_line, resultData.lines.head_line);
     
     // 绑定 AI 解读按钮
     const aiBtn = document.getElementById('ai-analyze-btn');
@@ -205,7 +205,8 @@ function init() {
         
         if (state.selectedPoint) {
             const { lineName, segIndex, pointIndex } = state.selectedPoint;
-            resultData.lines[lineName][segIndex][pointIndex] = [originalX, originalY];
+            // 确保坐标为整数，避免后端 Pydantic 校验错误
+            resultData.lines[lineName][segIndex][pointIndex] = [Math.round(originalX), Math.round(originalY)];
         }
         
         canvas.style.cursor = found ? "pointer" : "crosshair";
@@ -229,9 +230,9 @@ function init() {
     });
 }
 
-function updateConfidence(el, points) {
+function updateConfidence(el, score, points) {
     if (points && points.length > 0) {
-        el.textContent = "已检测";
+        el.textContent = `已检测 (${(score * 100).toFixed(0)}%)`;
         el.style.color = "#2ecc71";
     } else {
         el.textContent = "未检测";

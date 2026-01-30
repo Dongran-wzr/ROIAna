@@ -23,16 +23,19 @@ class ManualCorrector:
             print(f"错误: 无法加载数据 {data_path}: {e}")
             sys.exit(1)
             
-        # 转换点格式为列表
         self.lines = {}
-        for name, points in self.data['lines'].items():
-            if points:
-                self.lines[name] = [p[0] for p in points]
+        
+        for name, segments in self.data['lines'].items():
+            self.lines[name] = []
+            if segments:
+                for segment in segments:
+                    if not segment: continue
+                    self.lines[name].append(segment)
             else:
                 self.lines[name] = []
                 
-        self.selected_point = None 
-        self.hover_point = None
+        self.selected_point = None  
+        self.hover_point = None    
         self.drag_active = False
         
         self.colors = {
@@ -50,22 +53,26 @@ class ManualCorrector:
     def draw(self):
         img = self.image.copy()
         
-        
-        for name, points in self.lines.items():
-            if not points: continue
+        for name, segments in self.lines.items():
+            if not segments: continue
             
-            pts = np.array(points, np.int32)
             color = self.colors.get(name, (255, 255, 255))
             
-            cv2.polylines(img, [pts], False, color, 2)
-            
-            # 绘制关键点
-            for i, p in enumerate(points):
-                # 高亮悬停或选中的点
-                if self.hover_point == (name, i) or self.selected_point == (name, i):
-                    cv2.circle(img, (p[0], p[1]), self.point_radius + 2, (0, 255, 255), -1)
-                else:
-                    cv2.circle(img, (p[0], p[1]), self.point_radius, color, -1)
+            for seg_idx, points in enumerate(segments):
+                if not points: continue
+                
+                pts = np.array(points, np.int32)
+                cv2.polylines(img, [pts], False, color, 2)
+                
+                # 绘制关键点
+                for pt_idx, p in enumerate(points):
+                    # 高亮悬停或选中的点
+                    current_id = (name, seg_idx, pt_idx)
+                    
+                    if self.hover_point == current_id or self.selected_point == current_id:
+                        cv2.circle(img, (int(p[0]), int(p[1])), self.point_radius + 2, (0, 255, 255), -1)
+                    else:
+                        cv2.circle(img, (int(p[0]), int(p[1])), self.point_radius, color, -1)
                     
         self.display_image = img
         cv2.imshow(self.window_name, self.display_image)
@@ -82,20 +89,21 @@ class ManualCorrector:
             
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.drag_active and self.selected_point:
-                name, idx = self.selected_point
-                self.lines[name][idx] = [x, y]
+                name, seg_idx, pt_idx = self.selected_point
+                self.lines[name][seg_idx][pt_idx] = [x, y]
             else:
                 # 寻找最近的点
                 min_dist = float('inf')
                 closest = None
                 
-                for name, points in self.lines.items():
-                    for i, p in enumerate(points):
-                        dist = np.sqrt((x - p[0])**2 + (y - p[1])**2)
-                        if dist < self.point_radius * 2: 
-                            if dist < min_dist:
-                                min_dist = dist
-                                closest = (name, i)
+                for name, segments in self.lines.items():
+                    for seg_idx, points in enumerate(segments):
+                        for pt_idx, p in enumerate(points):
+                            dist = np.sqrt((x - p[0])**2 + (y - p[1])**2)
+                            if dist < self.point_radius * 2: 
+                                if dist < min_dist:
+                                    min_dist = dist
+                                    closest = (name, seg_idx, pt_idx)
                 
                 self.hover_point = closest
                 
@@ -118,13 +126,8 @@ class ManualCorrector:
         cv2.destroyAllWindows()
 
     def save(self):
-        # 转换回原始格式保存
-        export_lines = {}
-        for name, points in self.lines.items():
-            formatted = [[[p[0], p[1]]] for p in points]
-            export_lines[name] = formatted
-            
-        self.data['lines'] = export_lines
+        # 保存回 JSON
+        self.data['lines'] = self.lines
         
         try:
             with open(self.data_path, 'w') as f:
@@ -158,8 +161,6 @@ if __name__ == "__main__":
             image_path = None
             
     if not image_path or not os.path.exists(image_path):
-        # 尝试默认命名规则
-        # 假设 json 是 output.json, 图片是 output.jpg
         base = os.path.splitext(json_path)[0]
         possible_exts = ['.jpg', '.png', '.jpeg']
         found = False

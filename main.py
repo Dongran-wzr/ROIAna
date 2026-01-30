@@ -11,7 +11,7 @@ from src.detector import HandDetector
 from src.processor import PalmLineExtractor
 
 def main():
-    parser = argparse.ArgumentParser(description="掌纹识别项目 (Palm Recognition Project)")
+    parser = argparse.ArgumentParser(description="掌纹识别")
     parser.add_argument("image_path", help="输入图片的路径 (JPG/PNG)")
     parser.add_argument("--output", help="输出结果图片的路径", default="output.jpg")
     parser.add_argument("--save-data", help="保存检测数据供人工矫正 (JSON)", action="store_true")
@@ -68,8 +68,7 @@ def main():
         "lines": {}
     }
     
-    # Step 4: 结果绘制 (在缩放后的原图上)
-    # 创建一个遮罩层用于绘制透明线条
+    # Step 4: 结果绘制 
     overlay = processed_img.copy()
     
     # 自适应线条粗细
@@ -77,33 +76,35 @@ def main():
     line_thickness = max(2, int(w / 300))
     
     for line_name, data in lines_result.items():
-        contour = data['contour']
+        contours = data.get('contours', [])
         confidence = data['confidence']
         color = data['color']
         
-        if contour is not None and confidence > 0.1: # 过滤低置信度
+        correction_data["lines"][line_name] = []
+        
+        if contours and confidence > 0.1: # 过滤低置信度
             print(f"  - {line_name}: 置信度 {confidence:.2f}")
             
-            # 将 ROI 坐标系的轮廓映射回原图坐标系
-            # contour shape is (N, 1, 2)
-            contour_original = contour + [x1, y1]
-            
-            # 保存数据
-            epsilon = 0.005 * cv2.arcLength(contour_original, False)
-            approx = cv2.approxPolyDP(contour_original, epsilon, False)
-            correction_data["lines"][line_name] = approx.tolist()
-            
-            # 绘制线条 (较粗，以便看清)
-            cv2.drawContours(overlay, [contour_original], -1, color, line_thickness)
+            for contour in contours:
+                # 将 ROI 坐标系的轮廓映射回原图坐标系
+                # contour shape is (N, 1, 2)
+                contour_original = contour + [x1, y1]
+                
+                # 保存数据
+                epsilon = 0.005 * cv2.arcLength(contour_original, False)
+                approx = cv2.approxPolyDP(contour_original, epsilon, False)
+                points_list = approx.reshape(-1, 2).tolist()
+                correction_data["lines"][line_name].append(points_list)
+                
+                cv2.drawContours(overlay, [contour_original], -1, color, line_thickness)
         else:
             print(f"  - {line_name}: 未检测到或置信度过低")
-            correction_data["lines"][line_name] = []
-
-    # 混合原图与线条层，实现透明效果
+            
+    # 混合原图与线条层
     alpha = 0.7
     cv2.addWeighted(overlay, alpha, processed_img, 1 - alpha, 0, processed_img)
     
-    # 绘制 ROI 框 (可选，方便调试)
+   
     cv2.rectangle(processed_img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 255), max(1, line_thickness // 2))
     
     # 显示左右手信息

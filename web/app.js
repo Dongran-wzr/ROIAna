@@ -292,9 +292,9 @@ function handleSuccess(result, timeElapsed) {
         elements.handType.style.color = "inherit";
     }
     
-    updateConfidence('life_line', result.lines.life_line);
-    updateConfidence('heart_line', result.lines.heart_line);
-    updateConfidence('head_line', result.lines.head_line);
+    updateConfidence('life_line', result.lines.life_line, result.confidences.life_line);
+    updateConfidence('heart_line', result.lines.heart_line, result.confidences.heart_line);
+    updateConfidence('head_line', result.lines.head_line, result.confidences.head_line);
     
     // 存储数据并跳转
     localStorage.setItem('palmResult', JSON.stringify(result));
@@ -306,10 +306,10 @@ function handleSuccess(result, timeElapsed) {
     }, 500);
 }
 
-function updateConfidence(lineKey, points) {
+function updateConfidence(lineKey, points, score) {
     const hasLine = points && points.length > 0;
-    const percent = hasLine ? '100%' : '0%';
-    const text = hasLine ? 'Detected' : 'Not Found';
+    const percent = hasLine ? Math.min(100, Math.max(0, score * 100)) + '%' : '0%';
+    const text = hasLine ? `Detected ${(score * 100).toFixed(0)}%` : 'Not Found';
     
     // 简单的映射
     const map = {

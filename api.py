@@ -45,6 +45,7 @@ analyzer = PalmAnalyzer()
 
 class DetectionResult(BaseModel):
     lines: Dict[str, List[List[List[int]]]] # 多段线: 线段列表 -> 点列表 -> [x,y]
+    confidences: Dict[str, float] # 置信度
     hand_info: Dict
     # reading: Dict[str, Dict[str, str]] # 移除自动解读
     image_url: str # 处理后图片的访问链接
@@ -56,7 +57,7 @@ class AnalyzeRequest(BaseModel):
 
 class CorrectionRequest(BaseModel):
     data_id: str
-    lines: Dict[str, List[List[List[int]]]] # 支持多段线
+    lines: Dict[str, List[List[List[float]]]] # 支持多段线，接收 float 以兼容前端计算精度
 
 @app.get("/")
 async def root():
@@ -110,6 +111,7 @@ async def detect_palm(file: UploadFile = File(...)):
     line_thickness = max(2, int(w / 300))
     
     export_lines = {}
+    export_confidences = {}
     
     for line_name, data in lines_result.items():
         # data 现在包含 'contours' 列表
@@ -118,6 +120,7 @@ async def detect_palm(file: UploadFile = File(...)):
         color = data['color']
         
         export_lines[line_name] = []
+        export_confidences[line_name] = float(confidence)
         
         if contours and confidence > 0.1:
             for contour in contours:
@@ -149,6 +152,7 @@ async def detect_palm(file: UploadFile = File(...)):
 
     return {
         "lines": export_lines,
+        "confidences": export_confidences,
         "hand_info": hand_info,
         "image_url": f"/images/{result_filename}",
         "clean_image_url": f"/images/{clean_filename}", # 额外返回干净图
