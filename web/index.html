@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掌纹识别</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>掌纹识别</h1>
+        </header>
+
+        <main>
+            <!-- 左侧：输入控制区 -->
+            <section class="input-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-target="upload-panel">本地上传</button>
+                    <button class="tab-btn" data-target="camera-panel">拍照识别</button>
+                </div>
+
+                <!-- 上传面板 -->
+                <div id="upload-panel" class="panel active">
+                    <div class="upload-area" id="drop-zone">
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                        <div class="upload-icon">📁</div>
+                        <p>点击或拖拽图片到此处</p>
+                        <p class="sub-text">支持 JPG, PNG 格式</p>
+                    </div>
+                </div>
+
+                <!-- 拍照面板 -->
+                <div id="camera-panel" class="panel">
+                    <div class="video-container">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="capture-canvas" hidden></canvas>
+                    </div>
+                    <div class="camera-controls">
+                        <button id="start-camera-btn" class="secondary-btn">开启摄像头</button>
+                        <button id="capture-btn" class="primary-btn" disabled>📸 拍照并识别</button>
+                    </div>
+                </div>
+
+                <button id="analyze-btn" class="primary-btn full-width" disabled>开始识别分析</button>
+            </section>
+
+            <!-- 右侧：结果展示区 -->
+            <section class="result-section">
+                <div class="image-viewer">
+                    <img id="result-image" src="" alt="识别结果" hidden>
+            
+                    <canvas id="overlay-canvas"></canvas>
+                    
+                    <div class="loading-overlay" id="loading" hidden>
+                        <div class="spinner"></div>
+                        <p>正在分析掌纹...</p>
+                    </div>
+                    
+                    <div class="empty-state" id="empty-state">
+                        <p>👈 请先在左侧选择图片</p>
+                    </div>
+                </div>
+
+                <!-- 结果控制栏 -->
+                <div class="controls-bar" id="controls-bar" hidden>
+                    <div class="toggle-group">
+                        <label><input type="checkbox" id="toggle-life" checked> <span class="dot red"></span>生命线</label>
+                        <label><input type="checkbox" id="toggle-heart" checked> <span class="dot blue"></span>感情线</label>
+                        <label><input type="checkbox" id="toggle-head" checked> <span class="dot green"></span>智慧线</label>
+                    </div>
+                </div>
+
+                <!-- 详细数据面板 -->
+                <div class="stats-panel" id="stats-panel" hidden>
+                    <h3>分析报告</h3>
+                    <div class="stat-item">
+                        <span class="label">识别耗时:</span>
+                        <span class="value" id="time-taken">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">手掌类型:</span>
+                        <span class="value" id="hand-type">-</span>
+                    </div>
+                    
+                    <div class="lines-confidence">
+                        <div class="confidence-item">
+                            <span class="name">生命线</span>
+                            <div class="bar-bg"><div class="bar-fill red" id="conf-life" style="width: 0%"></div></div>
+                            <span class="percent" id="conf-life-text">0%</span>
+                        </div>
+                        <div class="confidence-item">
+                            <span class="name">感情线</span>
+                            <div class="bar-bg"><div class="bar-fill blue" id="conf-heart" style="width: 0%"></div></div>
+                            <span class="percent" id="conf-heart-text">0%</span>
+                        </div>
+                        <div class="confidence-item">
+                            <span class="name">智慧线</span>
+                            <div class="bar-bg"><div class="bar-fill green" id="conf-head" style="width: 0%"></div></div>
+                            <span class="percent" id="conf-head-text">0%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 错误提示 -->
+                    <div class="error-box" id="error-box" hidden>
+                        <h4>识别受阻</h4>
+                        <p id="error-reason">原因未知</p>
+                        <p class="suggestion" id="error-suggestion"></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

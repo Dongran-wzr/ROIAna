@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掌纹分析报告</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a1a; 
+            color: #f0f0f0;
+        }
+        
+        .result-container {
+            display: flex;
+            height: 100%;
+        }
+        
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        #result-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        #overlay-canvas {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: #2c2c2c;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        
+        .sidebar h2 {
+            margin-bottom: 20px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 15px;
+        }
+        
+        .stat-group {
+            margin-bottom: 30px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            color: #ccc;
+        }
+        
+        .stat-value {
+            color: #fff;
+            font-weight: 500;
+        }
+        
+        .line-switches {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .switch-item {
+            display: flex;
+            align-items: center;
+            background: #363636;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .switch-item:hover {
+            background: #404040;
+        }
+        
+        .switch-item input {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .actions {
+            margin-top: auto;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-back {
+            background: #444;
+            color: #fff;
+        }
+        
+        .btn-save {
+            background: var(--primary-color);
+            color: #fff;
+        }
+        
+        .btn:hover { opacity: 0.9; }
+
+        .bar-bg { background: #444; }
+        .percent { color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <!-- 主视图区域 -->
+        <div class="canvas-area" id="canvas-area">
+            <img id="result-image" src="" alt="Result">
+            <canvas id="overlay-canvas"></canvas>
+        </div>
+        
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <h2>分析报告</h2>
+            
+            <div class="stat-group">
+                <div class="stat-row">
+                    <span>识别耗时</span>
+                    <span class="stat-value" id="time-taken">-</span>
+                </div>
+                <div class="stat-row">
+                    <span>手掌类型</span>
+                    <span class="stat-value" id="hand-type">-</span>
+                </div>
+            </div>
+            
+            <h3>主线详情</h3>
+            <div class="line-switches">
+                <label class="switch-item">
+                    <input type="checkbox" id="toggle-life" checked>
+                    <span class="legend-dot" style="background: var(--line-life)"></span>
+                    <span>生命线</span>
+                    <span class="percent" id="conf-life" style="margin-left: auto">Detected</span>
+                </label>
+                
+                <label class="switch-item">
+                    <input type="checkbox" id="toggle-heart" checked>
+                    <span class="legend-dot" style="background: var(--line-heart)"></span>
+                    <span>感情线</span>
+                    <span class="percent" id="conf-heart" style="margin-left: auto">Detected</span>
+                </label>
+                
+                <label class="switch-item">
+                    <input type="checkbox" id="toggle-head" checked>
+                    <span class="legend-dot" style="background: var(--line-head)"></span>
+                    <span>智慧线</span>
+                    <span class="percent" id="conf-head" style="margin-left: auto">Detected</span>
+                </label>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-back" onclick="history.back()">返回</button>
+                <button class="btn btn-save" onclick="window.print()">保存报告</button>
+            </div>
+        </aside>
+    </div>
+
+    <script src="result.js"></script>
+</body>
+</html>
