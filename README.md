@@ -84,6 +84,14 @@ python -m http.server 8080
 ```
 然后在浏览器访问: [http://localhost:8080](http://localhost:8080)
 
+## 测试步骤
+`main.py`是测试入口。在终端窗口运行，进行代码测试：
+
+```bash
+python main.py img/img01.jpg --output processed.jpg --save-data
+```
+
+
 ## 项目结构
 
 ```
