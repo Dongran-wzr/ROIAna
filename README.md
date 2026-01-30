@@ -91,6 +91,7 @@ python -m http.server 8080
 ```bash
 python main.py img/img01.jpg --output processed.jpg --save-data
 ```
+运行后会在主目录下保存 JSON 数据和标注图像。
 
 
 ## 项目结构
