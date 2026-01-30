@@ -34,7 +34,8 @@ source venv/bin/activate
 ### 4. 安装依赖
 
 ```bash
-pip install "package"
+pip install "list_package"
+#list_package包括以下全部
 package:
     uvicorn
     python-multipart
@@ -46,7 +47,7 @@ package:
 ```
 
 > 如果下载速度慢，可以使用国内镜像源：
-> `pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple`
+> `pip install package -i https://pypi.tuna.tsinghua.edu.cn/simple`
 
 ## 运行步骤
 
