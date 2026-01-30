@@ -338,7 +338,8 @@ function handleError(error) {
         1000: "无效图片",
         1001: "未检测到手掌",
         1002: "手掌过小",
-        1003: "手掌未展开"
+        1003: "手掌未展开",
+        1004: "检测到手背"
     };
     
     elements.errorReason.textContent = reasonMap[code] || `Error ${code}`;
@@ -389,18 +390,21 @@ function drawLines() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    for (const [name, points] of Object.entries(lines)) {
-        if (!points || points.length === 0) continue;
+    for (const [name, segments] of Object.entries(lines)) {
+        if (!segments || segments.length === 0) continue;
         if (!styles[name].show) continue;
         
         ctx.strokeStyle = styles[name].color;
         ctx.beginPath();
         
-        points.forEach((p, i) => {
-            const x = p[0] * scaleX;
-            const y = p[1] * scaleY;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+        
+        segments.forEach(segment => {
+            segment.forEach((p, i) => {
+                const x = p[0] * scaleX;
+                const y = p[1] * scaleY;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
         });
         
         ctx.stroke();

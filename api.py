@@ -44,7 +44,7 @@ extractor = PalmLineExtractor()
 analyzer = PalmAnalyzer()
 
 class DetectionResult(BaseModel):
-    lines: Dict[str, List[List[int]]] # 简化后的点坐标
+    lines: Dict[str, List[List[List[int]]]] # 多段线: 线段列表 -> 点列表 -> [x,y]
     hand_info: Dict
     # reading: Dict[str, Dict[str, str]] # 移除自动解读
     image_url: str # 处理后图片的访问链接
@@ -56,7 +56,7 @@ class AnalyzeRequest(BaseModel):
 
 class CorrectionRequest(BaseModel):
     data_id: str
-    lines: Dict[str, List[List[int]]]
+    lines: Dict[str, List[List[List[int]]]] # 支持多段线
 
 @app.get("/")
 async def root():
@@ -112,22 +112,27 @@ async def detect_palm(file: UploadFile = File(...)):
     export_lines = {}
     
     for line_name, data in lines_result.items():
-        contour = data['contour']
+        # data 现在包含 'contours' 列表
+        contours = data.get('contours', [])
         confidence = data['confidence']
         color = data['color']
         
         export_lines[line_name] = []
         
-        if contour is not None and confidence > 0.1:
-            contour_original = contour + [x1, y1]
-            
-            epsilon = 0.005 * cv2.arcLength(contour_original, False)
-            approx = cv2.approxPolyDP(contour_original, epsilon, False)
-          
-            points_list = approx.reshape(-1, 2).tolist()
-            export_lines[line_name] = points_list
-            
-            cv2.drawContours(overlay, [contour_original], -1, color, line_thickness)
+        if contours and confidence > 0.1:
+            for contour in contours:
+                contour_original = contour + [x1, y1]
+                
+                # 简化数据
+                epsilon = 0.001 * cv2.arcLength(contour_original, False)
+                approx = cv2.approxPolyDP(contour_original, epsilon, False)
+                
+                # approx shape is (N, 1, 2) -> [[x,y], [x,y]...]
+                points_list = approx.reshape(-1, 2).tolist()
+                export_lines[line_name].append(points_list)
+                
+                # 绘制到 overlay 用于生成静态预览图 (依然绘制，作为备份)
+                cv2.drawContours(overlay, [contour_original], -1, color, line_thickness)
 
     alpha = 0.7
     cv2.addWeighted(overlay, alpha, processed_img, 1 - alpha, 0, processed_img)
@@ -177,7 +182,7 @@ async def analyze_hand(request: AnalyzeRequest):
 @app.post("/correct")
 async def correct_palm(request: CorrectionRequest):
     """
-    接收人工矫正后的线条数据，重新绘制结果图。
+    接收人工矫正后的线条数据，重新绘制结果图，并更新特征数据供分析使用。
     """
    
     clean_files = [f for f in os.listdir(TEMP_DIR) if f.startswith(f"clean_{request.data_id}")]
@@ -201,25 +206,55 @@ async def correct_palm(request: CorrectionRequest):
         'head_line': (0, 255, 0)   
     }
     
-    for line_name, points in request.lines.items():
-        if not points: continue
+    # 1. 保存矫正后的线条数据
+    corrected_data_path = os.path.join(TEMP_DIR, f"{request.data_id}_corrected.json")
+    with open(corrected_data_path, 'w') as f:
+        json.dump(request.lines, f)
         
-        pts = np.array(points, np.int32)
-        pts = pts.reshape((-1, 1, 2))
+    # 2. 重构数据以进行特征重新提取
+    reconstructed_result = {}
+    
+    for line_name, segments in request.lines.items():
+        if not segments: 
+            reconstructed_result[line_name] = {'contours': []}
+            continue
+            
+        # 转换回 numpy array 列表，格式 (N, 1, 2)
+        contours = []
         
         color = colors.get(line_name, (255, 255, 255))
-        cv2.polylines(overlay, [pts], False, color, line_thickness)
+        
+        for segment in segments:
+            if not segment: continue
+            pts = np.array(segment, np.int32)
+            pts = pts.reshape((-1, 1, 2))
+            contours.append(pts)
+            
+            # 绘制
+            cv2.polylines(overlay, [pts], False, color, line_thickness)
+            
+        reconstructed_result[line_name] = {'contours': contours}
+
+    # 3. 重新计算特征并保存
+    try:
+        features = analyzer._extract_features(reconstructed_result, (h, w))
+        feature_file = os.path.join(TEMP_DIR, f"{request.data_id}_features.json")
+        with open(feature_file, 'w') as f:
+            json.dump(features, f)
+    except Exception as e:
+        print(f"Feature re-extraction failed: {e}")
+        # 不阻断流程，仅打印错误
         
     alpha = 0.7
     cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
     
-    # 保存矫正后的结果
+    # 保存矫正后的结果图片
     corrected_filename = f"corrected_{request.data_id}.jpg"
     corrected_path = os.path.join(TEMP_DIR, corrected_filename)
     cv2.imwrite(corrected_path, img)
     
     return {
-        "message": "Correction applied successfully",
+        "message": "Correction saved and analysis updated",
         "image_url": f"/images/{corrected_filename}"
     }
 

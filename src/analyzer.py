@@ -42,11 +42,24 @@ class PalmAnalyzer:
         
         # 提取生命线
         life_res = {}
-        if lines_result.get('life_line', {}).get('contour') is not None:
-            cnt = lines_result['life_line']['contour']
-            length = cv2.arcLength(cnt, False)
+        # 兼容旧逻辑，如果有 'contour' 则用，否则用 'contours'
+        # 但我们已经更新了 processor.py，现在只有 'contours'
+        # 不过为了稳健性，我们需要从 contours 中聚合特征
+        
+        def aggregate_metrics(contours):
+            if not contours: return None
+            total_len = sum(cv2.arcLength(cnt, False) for cnt in contours)
+            # 取最长的一段计算 curvature / slope 等特征
+            longest_cnt = max(contours, key=lambda c: cv2.arcLength(c, False))
+            return total_len, longest_cnt
+
+        life_cnts = lines_result.get('life_line', {}).get('contours')
+        res = aggregate_metrics(life_cnts)
+        
+        if res:
+            length, longest_cnt = res
             norm_len = length / max(width, height)
-            x, y, w, h = cv2.boundingRect(cnt)
+            x, y, w, h = cv2.boundingRect(longest_cnt)
             curvature = w / width
             
             life_res['desc'] = f"长度指数 {norm_len:.2f}, 弧度指数 {curvature:.2f}"
@@ -60,13 +73,15 @@ class PalmAnalyzer:
             
         # 提取智慧线
         head_res = {}
-        if lines_result.get('head_line', {}).get('contour') is not None:
-            cnt = lines_result['head_line']['contour']
-            length = cv2.arcLength(cnt, False)
+        head_cnts = lines_result.get('head_line', {}).get('contours')
+        res = aggregate_metrics(head_cnts)
+        
+        if res:
+            length, longest_cnt = res
             norm_len = length / width
             
             try:
-                line_params = cv2.fitLine(cnt, cv2.DIST_L2, 0, 0.01, 0.01)
+                line_params = cv2.fitLine(longest_cnt, cv2.DIST_L2, 0, 0.01, 0.01)
                 vx, vy, x, y = line_params.flatten()
                 slope = vy / vx if vx != 0 else 100
             except Exception as e:
@@ -84,13 +99,14 @@ class PalmAnalyzer:
             
         # 提取感情线
         heart_res = {}
-        if lines_result.get('heart_line', {}).get('contour') is not None:
-            cnt = lines_result['heart_line']['contour']
-            length = cv2.arcLength(cnt, False)
+        heart_cnts = lines_result.get('heart_line', {}).get('contours')
+        res = aggregate_metrics(heart_cnts)
+        
+        if res:
+            length, longest_cnt = res
             norm_len = length / width
-            epsilon = 0.01 * length
-            approx = cv2.approxPolyDP(cnt, epsilon, False)
-            complexity = len(approx)
+            # 复杂度：所有轮廓的复杂度之和
+            complexity = sum(len(cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, False), False)) for cnt in heart_cnts)
             
             heart_res['desc'] = f"长度指数 {norm_len:.2f}, 复杂度 {complexity}"
             heart_res['metrics'] = {'norm_len': float(norm_len), 'complexity': int(complexity)}

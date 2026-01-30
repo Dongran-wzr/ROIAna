@@ -15,6 +15,33 @@ class HandDetector:
         )
         self.mp_drawing = mp.solutions.drawing_utils
 
+    def _is_palm_side(self, landmarks, handedness_label):
+        """
+        判断是否为手心面 (Palm Side)
+        """
+        # 提取关键点 (x 坐标)
+        thumb_tip = landmarks[4] 
+        pinky_tip = landmarks[20] 
+        
+        thumb_x = thumb_tip.x
+        pinky_x = pinky_tip.x
+        
+        
+        p0 = landmarks[0]
+        p5 = landmarks[5]
+        p17 = landmarks[17]
+        
+        v1 = (p5.x - p0.x, p5.y - p0.y)
+        v2 = (p17.x - p0.x, p17.y - p0.y)
+        
+        cross_product = v1[0] * v2[1] - v1[1] * v2[0]
+        
+        
+        if handedness_label == "Left":
+            return cross_product < 0
+        else: # Right
+            return cross_product > 0
+
     def detect_and_crop(self, image: np.ndarray, padding_ratio: float = 0.2):
         """
         检测手掌并裁切 ROI 区域。
@@ -35,11 +62,34 @@ class HandDetector:
                 'suggestion': '未检测到手掌，请确保手掌完整出现在画面中，背景尽量干净。'
             }
 
-        # 获取第一个检测到的手
         hand_landmarks = results.multi_hand_landmarks[0]
         handedness = results.multi_handedness[0]
         
-        # 提取关键点坐标
+        # 获取左右手信息
+        original_label = handedness.classification[0].label
+        score = handedness.classification[0].score
+        
+        is_palm = self._is_palm_side(hand_landmarks.landmark, original_label)
+        
+        
+        if not is_palm:
+             return {
+                'error_code': 1004,
+                'suggestion': '检测到手背，请翻转手掌展示手心。'
+            }
+
+                
+        p0 = hand_landmarks.landmark[0]
+        p5 = hand_landmarks.landmark[5]
+        p17 = hand_landmarks.landmark[17]
+        v1 = (p5.x - p0.x, p5.y - p0.y)
+        v2 = (p17.x - p0.x, p17.y - p0.y)
+        cross_val = v1[0] * v2[1] - v1[1] * v2[0]
+        
+        final_label = "Left" if cross_val < 0 else "Right"
+        
+        
+        # 提取关键点坐标 (像素)
         landmark_indices = [0, 1, 5, 9, 13, 17] 
         points = []
         all_landmarks = [] 
@@ -51,7 +101,7 @@ class HandDetector:
                 points.append((cx, cy))
         
         
-        # 检查手掌占比
+        # 1. 检查手掌占比
         points_np = np.array(points)
         x, y, w, h = cv2.boundingRect(points_np)
         roi_area = w * h
@@ -64,21 +114,21 @@ class HandDetector:
                 'suggestion': '检测到的手掌过小，请将手掌移近镜头。'
             }
 
-        # 展开状态检测
+        # 2. 手掌展开状态检测
         wrist = np.array(all_landmarks[0])
-        middle_mcp = np.array(all_landmarks[9]) # 中指指根
-        middle_tip = np.array(all_landmarks[12]) # 中指指尖
+        middle_mcp = np.array(all_landmarks[9]) 
+        middle_tip = np.array(all_landmarks[12]) 
         
         dist_palm = np.linalg.norm(middle_mcp - wrist)
         dist_finger = np.linalg.norm(middle_tip - wrist)
         
-        if dist_finger < dist_palm * 1.2: # 手指弯曲
+        if dist_finger < dist_palm * 1.2: 
              return {
                 'error_code': 1003,
                 'suggestion': '手掌似乎未完全展开，请张开手掌以获得最佳效果。'
             }
 
-        # 边界检查
+        # 3. 边界检查
         margin = 10
         is_near_border = False
         for px, py in points:
@@ -86,7 +136,7 @@ class HandDetector:
                 is_near_border = True
                 break
 
-        # ROI 裁切
+        # --- ROI 裁切 ---
         pad_w = int(w * padding_ratio)
         pad_h = int(h * padding_ratio)
         
@@ -95,15 +145,8 @@ class HandDetector:
         x2 = min(width, x + w + pad_w)
         y2 = min(height, y + h + pad_h)
         
-        # 获取左右手信息
-        original_label = handedness.classification[0].label
-        label = "Right" if original_label == "Left" else "Left"
-        score = handedness.classification[0].score
-        
-        # 裁切 ROI
         roi = image[y1:y2, x1:x2]
         
-        # 映射到 ROI 坐标系
         roi_landmarks = []
         for (lx, ly) in all_landmarks:
             roi_landmarks.append((lx - x1, ly - y1))
@@ -111,7 +154,7 @@ class HandDetector:
         return {
             'roi': roi,
             'landmarks_original': all_landmarks, 
-            'landmarks_roi': roi_landmarks,     
+            'landmarks_roi': roi_landmarks,      
             'bbox': (x1, y1, x2, y2),
-            'hand_info': {'label': label, 'score': score, 'is_open': True}
+            'hand_info': {'label': final_label, 'score': score, 'is_open': True}
         }

@@ -23,7 +23,10 @@ const elements = {
 let state = {
     imageNaturalWidth: 0,
     imageNaturalHeight: 0,
-    currentScale: 1
+    currentScale: 1,
+    isEditing: false,
+    hoverPoint: null, 
+    selectedPoint: null
 };
 
 function init() {
@@ -101,7 +104,125 @@ function init() {
         el.addEventListener('change', drawLines);
     });
     
-    // 窗口大小改变时重绘
+    // 绑定编辑按钮
+    const editBtn = document.getElementById('edit-btn');
+    const saveEditBtn = document.getElementById('save-edit-btn');
+    
+    editBtn.addEventListener('click', () => {
+        state.isEditing = !state.isEditing;
+        if (state.isEditing) {
+            editBtn.textContent = "❌ 退出编辑";
+            editBtn.style.background = "#c0392b";
+            saveEditBtn.style.display = "block";
+            elements.overlayCanvas.style.pointerEvents = "auto";
+            elements.overlayCanvas.style.cursor = "crosshair";
+        } else {
+            editBtn.textContent = "✏️ 人工矫正";
+            editBtn.style.background = "#e67e22";
+            saveEditBtn.style.display = "none";
+            elements.overlayCanvas.style.pointerEvents = "none";
+            state.selectedPoint = null;
+        }
+        drawLines();
+    });
+    
+    saveEditBtn.addEventListener('click', async () => {
+        saveEditBtn.disabled = true;
+        saveEditBtn.textContent = "保存中...";
+        
+        try {
+            const payload = {
+                data_id: resultData.data_id,
+                lines: resultData.lines
+            };
+            
+            const response = await fetch(`${API_BASE_URL}/correct`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                let errorMsg = "保存失败";
+                try {
+                    const errData = await response.json();
+                    if (errData.detail) {
+                        errorMsg = typeof errData.detail === 'object' ? JSON.stringify(errData.detail) : errData.detail;
+                    }
+                } catch (e) {
+                    // ignore json parse error
+                }
+                throw new Error(errorMsg);
+            }
+            
+            await response.json();
+            alert("✅ 矫正保存成功！");
+            editBtn.click();
+            
+        } catch (e) {
+            alert("❌ " + e.message);
+        } finally {
+            saveEditBtn.disabled = false;
+            saveEditBtn.textContent = "💾 保存修改";
+        }
+    });
+    
+    // Canvas 交互事件
+    const canvas = elements.overlayCanvas;
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (!state.isEditing) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+        
+        const scaleX = state.imageNaturalWidth / canvas.width;
+        const scaleY = state.imageNaturalHeight / canvas.height;
+        
+        const originalX = x * scaleX;
+        const originalY = y * scaleY;
+        
+        let minDist = 20; 
+        let found = null;
+        
+        for (const [name, segments] of Object.entries(resultData.lines)) {
+            const toggle = document.getElementById(`toggle-${name.split('_')[0]}`);
+            if (toggle && !toggle.checked) continue;
+            
+            segments.forEach((seg, sIdx) => {
+                seg.forEach((p, pIdx) => {
+                    const dist = Math.hypot(p[0] - originalX, p[1] - originalY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        found = { lineName: name, segIndex: sIdx, pointIndex: pIdx };
+                    }
+                });
+            });
+        }
+        
+        state.hoverPoint = found;
+        
+        if (state.selectedPoint) {
+            const { lineName, segIndex, pointIndex } = state.selectedPoint;
+            resultData.lines[lineName][segIndex][pointIndex] = [originalX, originalY];
+        }
+        
+        canvas.style.cursor = found ? "pointer" : "crosshair";
+        drawLines();
+    });
+    
+    canvas.addEventListener('mousedown', (e) => {
+        if (state.isEditing && state.hoverPoint) {
+            state.selectedPoint = state.hoverPoint;
+        }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+        state.selectedPoint = null;
+    });
+    
+    // 绑定 AI 解读按钮窗口大小改变时重绘
     window.addEventListener('resize', () => {
         resizeCanvas();
         drawLines();
@@ -178,20 +299,54 @@ function drawLines() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    for (const [name, points] of Object.entries(lines)) {
-        if (!points || points.length === 0) continue;
+    for (const [name, segments] of Object.entries(lines)) {
+        if (!segments || segments.length === 0) continue;
         if (!styles[name].show) continue;
         
-        ctx.strokeStyle = styles[name].color;
-        ctx.beginPath();
+        const color = styles[name].color;
         
-        points.forEach((p, i) => {
-            const x = p[0] * scaleX;
-            const y = p[1] * scaleY;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+        // 绘制线段
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = color;
+        
+        segments.forEach(segment => {
+            ctx.beginPath();
+            segment.forEach((p, i) => {
+                const x = p[0] * scaleX;
+                const y = p[1] * scaleY;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            
+            // 编辑模式下绘制关键点
+            if (state.isEditing) {
+                segment.forEach((p, i) => {
+                    const x = p[0] * scaleX;
+                    const y = p[1] * scaleY;
+                    
+                    ctx.beginPath();
+                    ctx.fillStyle = color;
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
         });
+    }
+    
+    // 绘制 Hover 高亮
+    if (state.isEditing && state.hoverPoint) {
+        const { lineName, segIndex, pointIndex } = state.hoverPoint;
+        const p = lines[lineName][segIndex][pointIndex];
+        const x = p[0] * scaleX;
+        const y = p[1] * scaleY;
         
+        ctx.beginPath();
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = styles[lineName].color;
+        ctx.lineWidth = 2;
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
     }
 }
