@@ -295,6 +295,16 @@ function handleSuccess(result, timeElapsed) {
     updateConfidence('life_line', result.lines.life_line, result.confidences.life_line);
     updateConfidence('heart_line', result.lines.heart_line, result.confidences.heart_line);
     updateConfidence('head_line', result.lines.head_line, result.confidences.head_line);
+
+    // 检查是否有未检测到的线，给出提示
+    const missingLines = [];
+    if (!result.lines.life_line || result.lines.life_line.length === 0) missingLines.push("生命线");
+    if (!result.lines.heart_line || result.lines.heart_line.length === 0) missingLines.push("感情线");
+    if (!result.lines.head_line || result.lines.head_line.length === 0) missingLines.push("智慧线");
+
+    if (missingLines.length > 0) {
+        alert(`注意：以下线条未检测到，可能需要人工矫正：\n${missingLines.join("、")}`);
+    }
     
     // 存储数据并跳转
     localStorage.setItem('palmResult', JSON.stringify(result));
