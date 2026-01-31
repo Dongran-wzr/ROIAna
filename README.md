@@ -54,9 +54,9 @@ package:
 ### 1. 配置 API Key
 如果你希望使用 DeepSeek 的 AI 解读功能，需要设置环境变量。如果未设置，系统将采用降级策略，使用内置的规则库进行基础解读。
 
-**CMD:**
-```cmd
-set DEEPSEEK_API_KEY=sk-api-key
+**PowerShell:**
+```PowerShell
+$env:DEEPSEEK_API_KEY="sk-api-key"
 ```
 
 **Linux / macOS:**
